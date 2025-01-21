@@ -6,6 +6,12 @@ from typing import Dict, List
 from anomaly import Anomaly
 from PIL import Image, ImageTk
 import os
+import folium
+from folium import plugins
+import webbrowser
+import json
+import io
+import requests
 
 # Set theme and color scheme
 ctk.set_appearance_mode("dark")
@@ -239,6 +245,56 @@ class RecordViewer(ctk.CTk):
             # Create card with suggestions
             self.create_card(record_data, status, consistency_score)
 
+            # Create map frame
+            map_frame = ctk.CTkFrame(
+                self.content_frame, fg_color="#252525", corner_radius=12
+            )
+            map_frame.pack(padx=20, pady=(0, 20), fill="both", expand=True)
+
+            # Get coordinates from the record
+            if "Geo Location" in record_data and record_data["Geo Location"]:
+                try:
+                    # Clean and parse the JSON string
+                    geo_string = str(record_data["Geo Location"])
+                    geo_string = geo_string.replace('""', '"')
+                    if geo_string.startswith('"') and geo_string.endswith('"'):
+                        geo_string = geo_string[1:-1]
+
+                    geo_data = json.loads(geo_string)
+
+                    # Create and display map
+                    map_path = self.create_map(geo_data)
+
+                    # Create a button to open the map in browser
+                    map_button = ctk.CTkButton(
+                        map_frame,
+                        text="View Journey Map",
+                        command=lambda: webbrowser.open(
+                            f"file://{os.path.abspath(map_path)}"
+                        ),
+                        fg_color="#1a1a1a",
+                        hover_color="#2a2a2a",
+                        height=32,
+                    )
+                    map_button.pack(pady=15)
+
+                except Exception as e:
+                    print(f"Error creating map: {str(e)}")
+                    error_label = ctk.CTkLabel(
+                        map_frame,
+                        text=f"Could not create map: {str(e)}",
+                        text_color="#ff6b6b",
+                        wraplength=300,
+                    )
+                    error_label.pack(pady=15)
+            else:
+                no_data_label = ctk.CTkLabel(
+                    map_frame,
+                    text="No journey data available",
+                    text_color="#8b8b8b",
+                )
+                no_data_label.pack(pady=15)
+
             # Update counter
             self.counter_label.configure(
                 text=f"Record {self.current_td_index + 1} of {len(self.td_list)}"
@@ -278,9 +334,9 @@ class RecordViewer(ctk.CTk):
         # Use exact column names from your data
         fields = [
             "TD",
-            "Last_Name",
+            "Last Name",
             "First Name",
-            "Birthdate (Geb)",
+            "Birthdate",
             "Birth Place",
             "Nationality",
             "Religion",
@@ -410,6 +466,98 @@ class RecordViewer(ctk.CTk):
         if self.current_td_index > 0:
             self.current_td_index -= 1
             self.show_current_record()
+
+    def create_map(self, geo_data):
+        """Create an interactive map showing the journey path"""
+        try:
+            # Create a map centered on Europe
+            m = folium.Map(location=[50.0, 10.0], zoom_start=4)
+
+            # Extract markers and paths from geo_data
+            markers = geo_data.get("markers", [])
+            paths = geo_data.get("paths", [])
+
+            coordinates = []
+            if markers and paths:
+                # Create a dictionary of locations for quick lookup
+                locations = {}
+                for marker in markers:
+                    location = marker.get("location", {})
+                    lat = location.get("lat")
+                    lon = location.get("lon")
+                    label = marker.get("label", "")
+                    marker_type = marker.get("type", "Location")
+                    if lat is not None and lon is not None:
+                        locations[label] = {
+                            "coords": [float(lat), float(lon)],
+                            "type": marker_type,
+                        }
+
+                # Add markers and collect coordinates in path order
+                location_number = 1
+                added_locations = set()  # Keep track of added locations
+
+                # Add first location
+                first_path = paths[0]
+                first_label = first_path.get("fromLabel", "")
+                if first_label in locations:
+                    loc_data = locations[first_label]
+                    coords = loc_data["coords"]
+                    if tuple(coords) not in added_locations:
+                        coordinates.append(coords)
+                        added_locations.add(tuple(coords))
+                        # Create custom icon with number
+                        icon = folium.DivIcon(
+                            html=f'<div style="font-size: 12pt; color: white; background-color: red; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; border: 2px solid white;"><b>{location_number}</b></div>'
+                        )
+                        folium.Marker(
+                            coords,
+                            popup=f"{location_number}. {first_label} ({loc_data['type']})",
+                            icon=icon,
+                        ).add_to(m)
+                        location_number += 1
+
+                # Add subsequent locations
+                for path in paths:
+                    to_label = path.get("toLabel", "")
+                    if to_label in locations:
+                        loc_data = locations[to_label]
+                        coords = loc_data["coords"]
+                        if tuple(coords) not in added_locations:
+                            coordinates.append(coords)
+                            added_locations.add(tuple(coords))
+                            # Create custom icon with number
+                            icon = folium.DivIcon(
+                                html=f'<div style="font-size: 12pt; color: white; background-color: red; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; border: 2px solid white;"><b>{location_number}</b></div>'
+                            )
+                            folium.Marker(
+                                coords,
+                                popup=f"{location_number}. {to_label} ({loc_data['type']})",
+                                icon=icon,
+                            ).add_to(m)
+                            location_number += 1
+
+            # Add path lines if we have coordinates
+            if len(coordinates) > 1:
+                # Add a line connecting the points
+                folium.PolyLine(
+                    coordinates, weight=2, color="red", opacity=0.8
+                ).add_to(m)
+
+                # Add animated path
+                plugins.AntPath(coordinates).add_to(m)
+
+            # Save the map
+            map_path = os.path.join(
+                os.path.dirname(__file__), "journey_map.html"
+            )
+            m.save(map_path)
+            return map_path
+
+        except Exception as e:
+            print(f"Error in create_map: {str(e)}")
+            print("Geo data structure:", geo_data)
+            raise
 
 
 def create_card(root, data, status, consistency_score):
