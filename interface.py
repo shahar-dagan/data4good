@@ -76,15 +76,29 @@ class RecordViewer(ctk.CTk):
         self.left_panel.grid_rowconfigure(1, weight=0)  # Navigation buttons
         self.left_panel.grid_columnconfigure(0, weight=1)
 
-        # Right panel (Image)
+        # Right panel (Image) with minimal padding
         self.right_panel = ctk.CTkFrame(
-            self, fg_color=bg_color, corner_radius=0, border_width=0
+            self,
+            fg_color="#252525",
+            corner_radius=12,
+            border_width=0,
+            width=800,  # Fixed width
+            height=700,  # Fixed height
         )
         self.right_panel.grid(
-            row=0, column=1, sticky="nsew"
-        )  # Changed to "nsew" to fill entire area
-        self.right_panel.grid_rowconfigure(0, weight=1)
-        self.right_panel.grid_columnconfigure(0, weight=1)
+            row=0, column=1, sticky="n", padx=(2, 4), pady=2
+        )  # Minimal padding
+
+        # Prevent the panel from shrinking
+        self.right_panel.grid_propagate(False)
+
+        # Image label with minimal padding
+        self.image_label = ctk.CTkLabel(
+            self.right_panel, text="", fg_color="transparent"
+        )
+        self.image_label.pack(
+            padx=2, pady=2, expand=True
+        )  # Minimal internal padding
 
         # Load data and create navigation
         self.load_data()
@@ -97,10 +111,6 @@ class RecordViewer(ctk.CTk):
 
         # Create navigation at bottom
         self.create_navigation()
-
-        # Image label taking 1/3 of screen width and full height
-        self.image_label = ctk.CTkLabel(self.right_panel, text="")
-        self.image_label.grid(row=0, column=0, sticky="nsew")
 
         self.show_current_record()
 
@@ -167,30 +177,28 @@ class RecordViewer(ctk.CTk):
             image_index = self.current_td_index % len(image_files)
             image_path = os.path.join("card_images", image_files[image_index])
 
-            # Calculate the screen dimensions
-            screen_width = self.winfo_width()
-            screen_height = self.winfo_height()
+            # Get panel dimensions (accounting for minimal padding)
+            panel_width = 796  # 800 - 4 (padding)
+            panel_height = 696  # 700 - 4 (padding)
 
-            # Calculate target size (1/3 of screen width, full height)
-            target_width = screen_width // 3
-            target_height = screen_height
-
-            # Load and resize image
+            # Load image
             image = Image.open(image_path)
 
-            # Calculate aspect ratio
-            aspect_ratio = image.width / image.height
+            # Calculate aspect ratios
+            image_ratio = image.width / image.height
+            panel_ratio = panel_width / panel_height
 
-            # Adjust dimensions to maintain aspect ratio
-            if aspect_ratio > (target_width / target_height):
-                # Image is wider than the target area
-                new_width = target_width
-                new_height = int(target_width / aspect_ratio)
+            # Determine new size while maintaining aspect ratio
+            if image_ratio > panel_ratio:
+                # Image is wider than panel
+                new_width = panel_width
+                new_height = int(panel_width / image_ratio)
             else:
-                # Image is taller than the target area
-                new_height = target_height
-                new_width = int(target_height * aspect_ratio)
+                # Image is taller than panel
+                new_height = panel_height
+                new_width = int(panel_height * image_ratio)
 
+            # Resize image
             image = image.resize(
                 (new_width, new_height), Image.Resampling.LANCZOS
             )
@@ -287,26 +295,38 @@ def create_card(root, data, status, consistency_score):
     card_frame = ctk.CTkFrame(root, fg_color="#252525", corner_radius=12)
     card_frame.pack(padx=20, pady=(0, 20), fill="both", expand=True)
 
-    # Header section with consistency score
+    # Header section with evenly spaced indicators
     header_frame = ctk.CTkFrame(
         card_frame, fg_color="#2d2d2d", corner_radius=12
     )
     header_frame.pack(fill="x", padx=15, pady=15)
 
-    # TD number with modern styling
+    # Create a container for even spacing
+    spacing_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+    spacing_frame.pack(expand=True, fill="x", padx=20)
+
+    # Configure grid columns for even spacing
+    spacing_frame.grid_columnconfigure(0, weight=1)
+    spacing_frame.grid_columnconfigure(1, weight=1)
+    spacing_frame.grid_columnconfigure(2, weight=1)
+
+    # TD number with pill style
+    td_frame = ctk.CTkFrame(spacing_frame, fg_color="#2d5a88", corner_radius=15)
+    td_frame.grid(row=0, column=0, padx=10)
+
     td_label = ctk.CTkLabel(
-        header_frame,
+        td_frame,
         text=f"TD: {data['TD']}",
-        font=("Inter", 20, "bold"),
+        font=("Inter", 13),
         text_color="#ffffff",
     )
-    td_label.pack(side="left", padx=15)
+    td_label.pack(padx=12, pady=6)
 
-    # Score with pill-style background
+    # Consistency score with pill style
     score_frame = ctk.CTkFrame(
-        header_frame, fg_color="#2d5a88", corner_radius=15
+        spacing_frame, fg_color="#2d5a88", corner_radius=15
     )
-    score_frame.pack(side="right", padx=15)
+    score_frame.grid(row=0, column=1, padx=10)
 
     score_label = ctk.CTkLabel(
         score_frame,
@@ -316,7 +336,21 @@ def create_card(root, data, status, consistency_score):
     )
     score_label.pack(padx=12, pady=6)
 
-    # Fields section with modern styling
+    # OCR Confidence score with pill style
+    ocr_frame = ctk.CTkFrame(
+        spacing_frame, fg_color="#2d5a88", corner_radius=15
+    )
+    ocr_frame.grid(row=0, column=2, padx=10)
+
+    ocr_label = ctk.CTkLabel(
+        ocr_frame,
+        text=f"OCR: {data.get('Overall Confidence OCR', '')}%",
+        font=("Inter", 13),
+        text_color="#ffffff",
+    )
+    ocr_label.pack(padx=12, pady=6)
+
+    # Fields section
     fields_frame = ctk.CTkFrame(card_frame, fg_color="transparent")
     fields_frame.pack(fill="both", expand=True, padx=15, pady=15)
 
@@ -327,8 +361,7 @@ def create_card(root, data, status, consistency_score):
         ("Birth Place", data.get("Birth Place", "")),
         ("Nationality", data.get("Nationality", "")),
         ("Religion", data.get("Religion", "")),
-        ("Overall Confidence OCR", data.get("Overall Confidence OCR", "")),
-    ]
+    ]  # Removed OCR confidence from fields list
 
     for i, (field, value) in enumerate(fields):
         # Field label with modern font
