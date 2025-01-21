@@ -210,75 +210,196 @@ class RecordViewer(ctk.CTk):
             self.image_label.configure(text="No image available")
 
     def show_current_record(self):
-        # Clear previous card
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
+        try:
+            print("\nSHOWING RECORD:")
+            # Clear previous card
+            for widget in self.content_frame.winfo_children():
+                widget.destroy()
 
-        current_td = self.td_list[self.current_td_index]
-        record_data = (
-            self.data_df[self.data_df["TD"] == current_td].iloc[0].to_dict()
-        )
+            current_td = self.td_list[self.current_td_index]
+            print("Current TD:", current_td)
 
-        # Calculate consistency score
-        anomalies = self.anomalies_by_td[current_td]
-        consistency_score = 100 - (len(anomalies) * 10)
-        consistency_score = max(0, consistency_score)
+            record_mask = self.data_df["TD"] == current_td
+            print("Records matching TD:", sum(record_mask))
 
-        status = {field: "valid" for field in record_data.keys()}
-        for anomaly in anomalies:
-            status[anomaly.field] = "invalid"
+            record_data = self.data_df[record_mask].iloc[0].to_dict()
+            print("Record data:", record_data)
 
-        # Create card in content frame
-        card_frame = create_card(
-            self.content_frame, record_data, status, consistency_score
-        )
+            # Calculate consistency score
+            anomalies = self.anomalies_by_td[current_td]
+            consistency_score = 100 - (len(anomalies) * 10)
+            consistency_score = max(0, consistency_score)
 
-        # Update counter
-        self.counter_label.configure(
-            text=f"Record {self.current_td_index + 1} of {len(self.td_list)}"
-        )
+            status = {field: "valid" for field in record_data.keys()}
+            for anomaly in anomalies:
+                status[anomaly.field] = "invalid"
 
-        # Load corresponding image
-        self.load_image(current_td)
+            print("Status:", status)
 
-    def load_data(self):
-        # Load data and anomalies
-        self.data_df = pd.read_excel("data.xlsx")
-        self.anomaly_df = pd.read_excel("anomaly_report.xlsx")
+            # Create card with suggestions
+            self.create_card(record_data, status, consistency_score)
 
-        # Ensure TD columns are strings in both DataFrames
-        self.data_df["TD"] = self.data_df["TD"].astype(str)
-        self.anomaly_df["TD"] = self.anomaly_df["TD"].astype(str)
-
-        # Group anomalies by TD with include_groups=False to fix deprecation warning
-        self.anomalies_by_td = (
-            self.anomaly_df.groupby("TD", group_keys=False)
-            .apply(
-                lambda x: [
-                    Anomaly(
-                        row["Field"],
-                        row["Current Value"],
-                        row["Issue Type"],
-                        float(row["Confidence"].strip("%")) / 100,
-                    )
-                    for _, row in x.iterrows()
-                ],
-                include_groups=False,  # Added to fix deprecation warning
+            # Update counter
+            self.counter_label.configure(
+                text=f"Record {self.current_td_index + 1} of {len(self.td_list)}"
             )
-            .to_dict()
-        )
 
-        # Get list of TDs with anomalies that exist in the data
-        self.td_list = [
-            td
-            for td in self.anomalies_by_td.keys()
-            if any(self.data_df["TD"] == td)
+            # Load corresponding image
+            self.load_image(current_td)
+
+        except Exception as e:
+            print(f"Error in show_current_record: {str(e)}")
+            import traceback
+
+            traceback.print_exc()
+
+    def create_card(self, data, status, consistency_score, suggestions=None):
+        card_frame = ctk.CTkFrame(
+            self.content_frame, fg_color="#252525", corner_radius=12
+        )
+        card_frame.pack(padx=20, pady=(0, 20), fill="both", expand=True)
+
+        # Header with consistency score
+        header_frame = ctk.CTkFrame(card_frame, fg_color="transparent")
+        header_frame.pack(fill="x", padx=15, pady=(15, 5))
+
+        score_label = ctk.CTkLabel(
+            header_frame,
+            text=f"Consistency Score: {consistency_score}%",
+            font=("Inter", 16, "bold"),
+            text_color="#ffffff",
+        )
+        score_label.pack(side="left")
+
+        # Fields section
+        fields_frame = ctk.CTkFrame(card_frame, fg_color="transparent")
+        fields_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        # Use exact column names from your data
+        fields = [
+            "TD",
+            "Last_Name",
+            "First Name",
+            "Birthdate (Geb)",
+            "Birth Place",
+            "Nationality",
+            "Religion",
+            "Automatic Validation",
         ]
 
-        if not self.td_list:
-            raise ValueError(
-                "No matching records found between anomalies and data"
+        for i, field in enumerate(fields):
+            # Field label
+            field_label = ctk.CTkLabel(
+                fields_frame,
+                text=field,
+                anchor="w",
+                font=("Inter", 13),
+                text_color="#8b8b8b",
             )
+            field_label.grid(row=i, column=0, sticky="w", pady=8, padx=5)
+
+            value = data.get(field, "")
+
+            # Entry widget
+            if "Date" in field or "Birthdate" in field:
+                entry_widget = DateEntry(
+                    fields_frame,
+                    width=20,
+                    date_pattern="dd/mm/yyyy",
+                    background=(
+                        "#2b2b2b"
+                        if status.get(field) != "invalid"
+                        else "#662222"
+                    ),
+                    foreground="#ffffff",
+                    borderwidth=0,
+                )
+                try:
+                    entry_widget.set_date(value)
+                except:
+                    entry_widget.delete(0, tk.END)
+                    entry_widget.insert(0, str(value))
+            else:
+                entry_widget = ctk.CTkEntry(
+                    fields_frame,
+                    width=200,
+                    height=32,
+                    font=("Inter", 13),
+                    fg_color="#2b2b2b",
+                    text_color="#ffffff",
+                    border_color="#404040",
+                    corner_radius=6,
+                )
+                entry_widget.insert(0, str(value))
+
+                if status.get(field) == "invalid":
+                    entry_widget.configure(fg_color="#662222")
+
+            entry_widget.configure(state="readonly")
+            entry_widget.grid(row=i, column=1, pady=8, padx=5, sticky="ew")
+
+        fields_frame.grid_columnconfigure(1, weight=1)
+        return card_frame
+
+    def load_data(self):
+        try:
+            print("\nLOADING DATA:")
+            # Load existing data
+            self.data_df = pd.read_excel("data.xlsx")
+            print("Data columns:", self.data_df.columns.tolist())
+            print("First row of data:", self.data_df.iloc[0].to_dict())
+
+            self.anomaly_df = pd.read_excel("anomaly_report.xlsx")
+            print("\nAnomaly columns:", self.anomaly_df.columns.tolist())
+
+            self.suggestions_df = pd.read_excel("suggestions.xlsx")
+            print(
+                "\nSuggestions columns:", self.suggestions_df.columns.tolist()
+            )
+
+            # Clean column names by stripping whitespace
+            self.data_df.columns = self.data_df.columns.str.strip()
+
+            # Ensure TD column is string in data and anomaly DataFrames
+            self.data_df["TD"] = self.data_df["TD"].astype(str)
+            self.anomaly_df["TD"] = self.anomaly_df["TD"].astype(str)
+
+            # Group anomalies by TD
+            self.anomalies_by_td = (
+                self.anomaly_df.groupby("TD")
+                .apply(
+                    lambda x: [
+                        Anomaly(
+                            row["Field"],
+                            row["Current Value"],
+                            row["Issue Type"],
+                            float(row["Confidence"].strip("%")) / 100,
+                        )
+                        for _, row in x.iterrows()
+                    ]
+                )
+                .to_dict()
+            )
+
+            # Get list of TDs with anomalies that exist in the data
+            self.td_list = [
+                td
+                for td in self.anomalies_by_td.keys()
+                if any(self.data_df["TD"] == td)
+            ]
+
+            print("\nFound TDs with anomalies:", self.td_list)
+
+            if not self.td_list:
+                raise ValueError(
+                    "No matching records found between anomalies and data"
+                )
+
+        except Exception as e:
+            print(f"Error in load_data: {str(e)}")
+            import traceback
+
+            traceback.print_exc()
 
     def next_record(self):
         if self.current_td_index < len(self.td_list) - 1:
