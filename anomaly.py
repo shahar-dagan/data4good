@@ -11,6 +11,18 @@ class Anomaly:
     confidence: float
     suggestions: List[str] = None
 
+    def __eq__(self, other):
+        if not isinstance(other, Anomaly):
+            return NotImplemented
+        return (
+            self.field == other.field
+            and self.value == other.value
+            and self.issue_type == other.issue_type
+        )
+
+    def __hash__(self):
+        return hash((self.field, self.value, self.issue_type))
+
 
 class HolocaustRecordValidator:
     def __init__(self):
@@ -87,7 +99,8 @@ class HolocaustRecordValidator:
         anomalies.extend(self._validate_religion(record))
         anomalies.extend(self._validate_location(record))
 
-        return anomalies
+        # Remove duplicates while preserving order
+        return list(dict.fromkeys(anomalies))
 
     def _check_ocr_confidence(self, record) -> List[Anomaly]:
         anomalies = []
@@ -348,6 +361,21 @@ class HolocaustRecordValidator:
                 )
             )
         return anomalies
+
+    def get_anomaly_summary(
+        self, anomalies: List[Anomaly]
+    ) -> Dict[str, List[str]]:
+        """
+        Group anomalies by field and return a summary of issues
+        """
+        summary = {}
+        for anomaly in anomalies:
+            if anomaly.field not in summary:
+                summary[anomaly.field] = []
+            summary[anomaly.field].append(
+                f"{anomaly.issue_type} (confidence: {anomaly.confidence*100:.0f}%)"
+            )
+        return summary
 
 
 def process_database(file_path: str) -> Dict[str, List[Anomaly]]:
