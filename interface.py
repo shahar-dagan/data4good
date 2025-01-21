@@ -476,9 +476,9 @@ def create_card(root, data, status, consistency_score):
     fields_frame.pack(fill="both", expand=True, padx=15, pady=15)
 
     fields = [
-        ("Last_Name", data.get("Last_Name", "")),
         ("First Name", data.get("First Name", "")),
-        ("Birthdate (Geb)", data.get("Birthdate (Geb)", "")),
+        ("Last Name", data.get("Last_Name", "")),
+        ("Birthdate", data.get("Birthdate (Geb)", "")),
         ("Birth Place", data.get("Birth Place", "")),
         ("Nationality", data.get("Nationality", "")),
         ("Religion", data.get("Religion", "")),
