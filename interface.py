@@ -55,25 +55,26 @@ class RecordViewer:
             "<Escape>", lambda e: root.attributes("-fullscreen", False)
         )
 
-        # Create main container with two columns
+        # Create main container
         self.main_frame = tk.Frame(root)
         self.main_frame.pack(fill="both", expand=True)
 
-        # Left panel for data
+        # Left panel (Datasheet)
         self.left_panel = tk.Frame(self.main_frame)
         self.left_panel.pack(side="left", fill="both", expand=True)
 
-        # Right panel for image
+        # Right panel (Image)
         self.right_panel = tk.Frame(self.main_frame)
         self.right_panel.pack(side="right", fill="both", expand=True)
+
+        # Load data and create navigation
+        self.load_data()
+        self.create_navigation()
 
         # Image label
         self.image_label = tk.Label(self.right_panel)
         self.image_label.pack(padx=20, pady=20, fill="both", expand=True)
 
-        # Load data and create navigation
-        self.load_data()
-        self.create_navigation()
         self.show_current_record()
 
     def create_navigation(self):
@@ -174,7 +175,7 @@ class RecordViewer:
         for anomaly in anomalies:
             status[anomaly.field] = "invalid"
 
-        # Create card in left panel
+        # Create card in left panel (Datasheet)
         card_frame = create_card(
             self.left_panel, record_data, status, consistency_score
         )
