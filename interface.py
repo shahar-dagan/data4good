@@ -1,11 +1,15 @@
+import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk
 from tkcalendar import DateEntry
 import pandas as pd
 from typing import Dict, List
 from anomaly import Anomaly
 from PIL import Image, ImageTk
 import os
+
+# Set theme and color scheme
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
 # Sample data and status
 sample_data = {
@@ -42,131 +46,172 @@ field_status = {
 }
 
 
-class RecordViewer:
-    def __init__(self, root):
-        self.root = root
+class RecordViewer(ctk.CTk):
+    def __init__(self):
+        super().__init__()
         self.current_td_index = 0
 
-        # Make it full screen
-        self.root.attributes("-fullscreen", True)
+        # Configure window
+        self.title("Record Viewer")
+        self.attributes("-fullscreen", True)
+        self.bind("<Escape>", lambda e: self.attributes("-fullscreen", False))
 
-        # Add escape key binding to exit fullscreen
-        self.root.bind(
-            "<Escape>", lambda e: root.attributes("-fullscreen", False)
-        )
+        # Set unified background color
+        bg_color = "#1a1a1a"  # Single background color for everything
+        self.configure(fg_color=bg_color)
 
-        # Create main container
-        self.main_frame = tk.Frame(root)
-        self.main_frame.pack(fill="both", expand=True)
+        # Create main container with grid
+        self.grid_columnconfigure(0, weight=2)  # Left panel takes 2/3
+        self.grid_columnconfigure(1, weight=1)  # Right panel takes 1/3
+        self.grid_rowconfigure(0, weight=1)
 
         # Left panel (Datasheet)
-        self.left_panel = tk.Frame(self.main_frame)
-        self.left_panel.pack(side="left", fill="both", expand=True)
+        self.left_panel = ctk.CTkFrame(
+            self, fg_color=bg_color, corner_radius=0, border_width=0
+        )
+        self.left_panel.grid(row=0, column=0, sticky="nsew")
+
+        # Configure left panel grid
+        self.left_panel.grid_rowconfigure(0, weight=1)  # Content area
+        self.left_panel.grid_rowconfigure(1, weight=0)  # Navigation buttons
+        self.left_panel.grid_columnconfigure(0, weight=1)
 
         # Right panel (Image)
-        self.right_panel = tk.Frame(self.main_frame)
-        self.right_panel.pack(side="right", fill="both", expand=True)
+        self.right_panel = ctk.CTkFrame(
+            self, fg_color=bg_color, corner_radius=0, border_width=0
+        )
+        self.right_panel.grid(
+            row=0, column=1, sticky="nsew"
+        )  # Changed to "nsew" to fill entire area
+        self.right_panel.grid_rowconfigure(0, weight=1)
+        self.right_panel.grid_columnconfigure(0, weight=1)
 
         # Load data and create navigation
         self.load_data()
+
+        # Content area frame
+        self.content_frame = ctk.CTkFrame(self.left_panel, fg_color=bg_color)
+        self.content_frame.grid(
+            row=0, column=0, sticky="nsew", padx=20, pady=20
+        )
+
+        # Create navigation at bottom
         self.create_navigation()
 
-        # Image label
-        self.image_label = tk.Label(self.right_panel)
-        self.image_label.pack(padx=20, pady=20, fill="both", expand=True)
+        # Image label taking 1/3 of screen width and full height
+        self.image_label = ctk.CTkLabel(self.right_panel, text="")
+        self.image_label.grid(row=0, column=0, sticky="nsew")
 
         self.show_current_record()
 
     def create_navigation(self):
-        # Store navigation frame as instance variable
-        self.navigation_frame = tk.Frame(self.left_panel)
-        self.navigation_frame.pack(pady=20)
+        # Navigation frame at bottom
+        self.navigation_frame = ctk.CTkFrame(
+            self.left_panel, fg_color="#1a1a1a", height=60
+        )
+        self.navigation_frame.grid(row=1, column=0, sticky="ew")
 
-        # Create style for larger buttons
-        style = ttk.Style()
-        style.configure("Large.TButton", padding=(20, 10))
+        # Prevent frame from shrinking
+        self.navigation_frame.grid_propagate(False)
 
-        prev_btn = ttk.Button(
-            self.navigation_frame,  # Changed from nav_frame
-            text="Previous",
+        # Center the buttons container
+        button_container = ctk.CTkFrame(
+            self.navigation_frame, fg_color="transparent"
+        )
+        button_container.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Previous button with modern styling
+        self.prev_btn = ctk.CTkButton(
+            button_container,
+            text="← Previous",
             command=self.prev_record,
-            style="Large.TButton",
+            width=120,
+            height=32,
+            corner_radius=6,
+            fg_color="#2d5a88",
+            hover_color="#1e3d5c",
+            font=("Inter", 13),
         )
-        prev_btn.pack(side="left", padx=10)
+        self.prev_btn.pack(side="left", padx=10)
 
-        next_btn = ttk.Button(
-            self.navigation_frame,  # Changed from nav_frame
-            text="Next",
-            command=self.next_record,
-            style="Large.TButton",
-        )
-        next_btn.pack(side="left", padx=10)
-
-        self.counter_label = tk.Label(
-            self.navigation_frame,  # Changed from nav_frame
+        # Counter label with modern font
+        self.counter_label = ctk.CTkLabel(
+            button_container,
             text=f"Record {self.current_td_index + 1} of {len(self.td_list)}",
-            font=("Arial", 12),
+            font=("Inter", 13),
+            text_color="#8b8b8b",
         )
         self.counter_label.pack(side="left", padx=20)
 
+        # Next button with modern styling
+        self.next_btn = ctk.CTkButton(
+            button_container,
+            text="Next →",
+            command=self.next_record,
+            width=120,
+            height=32,
+            corner_radius=6,
+            fg_color="#2d5a88",
+            hover_color="#1e3d5c",
+            font=("Inter", 13),
+        )
+        self.next_btn.pack(side="left", padx=10)
+
     def load_image(self, td):
         try:
-            # Get list of all images in the directory
             image_files = [
                 f
                 for f in os.listdir("card_images")
                 if f.endswith((".jpg", ".jpeg", ".png"))
             ]
-
-            # Use current_td_index to cycle through available images
             image_index = self.current_td_index % len(image_files)
             image_path = os.path.join("card_images", image_files[image_index])
 
-            # Load image
+            # Calculate the screen dimensions
+            screen_width = self.winfo_width()
+            screen_height = self.winfo_height()
+
+            # Calculate target size (1/3 of screen width, full height)
+            target_width = screen_width // 3
+            target_height = screen_height
+
+            # Load and resize image
             image = Image.open(image_path)
 
-            # Get the size of the right panel
-            panel_width = self.right_panel.winfo_width()
-            panel_height = self.right_panel.winfo_height()
+            # Calculate aspect ratio
+            aspect_ratio = image.width / image.height
 
-            # Calculate scaling factors for both dimensions
-            width_ratio = panel_width / image.width
-            height_ratio = panel_height / image.height
+            # Adjust dimensions to maintain aspect ratio
+            if aspect_ratio > (target_width / target_height):
+                # Image is wider than the target area
+                new_width = target_width
+                new_height = int(target_width / aspect_ratio)
+            else:
+                # Image is taller than the target area
+                new_height = target_height
+                new_width = int(target_height * aspect_ratio)
 
-            # Use the smaller ratio to ensure image fits in both dimensions
-            scale_factor = min(width_ratio, height_ratio)
-
-            # Calculate new dimensions
-            new_width = int(
-                image.width * scale_factor * 0.9
-            )  # 90% of panel width
-            new_height = int(
-                image.height * scale_factor * 0.9
-            )  # 90% of panel height
-
-            # Resize image
             image = image.resize(
                 (new_width, new_height), Image.Resampling.LANCZOS
             )
             photo = ImageTk.PhotoImage(image)
             self.image_label.configure(image=photo)
-            self.image_label.image = photo  # Keep a reference
+            self.image_label.image = photo
         except Exception as e:
             self.image_label.configure(image="")
             self.image_label.configure(text="No image available")
 
     def show_current_record(self):
         # Clear previous card
-        for widget in self.left_panel.winfo_children():
-            if isinstance(widget, tk.Frame) and widget != self.navigation_frame:
-                widget.destroy()
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
 
         current_td = self.td_list[self.current_td_index]
         record_data = (
             self.data_df[self.data_df["TD"] == current_td].iloc[0].to_dict()
         )
 
-        # Calculate consistency score and create card
+        # Calculate consistency score
         anomalies = self.anomalies_by_td[current_td]
         consistency_score = 100 - (len(anomalies) * 10)
         consistency_score = max(0, consistency_score)
@@ -175,13 +220,13 @@ class RecordViewer:
         for anomaly in anomalies:
             status[anomaly.field] = "invalid"
 
-        # Create card in left panel (Datasheet)
+        # Create card in content frame
         card_frame = create_card(
-            self.left_panel, record_data, status, consistency_score
+            self.content_frame, record_data, status, consistency_score
         )
 
         # Update counter
-        self.counter_label.config(
+        self.counter_label.configure(
             text=f"Record {self.current_td_index + 1} of {len(self.td_list)}"
         )
 
@@ -197,11 +242,9 @@ class RecordViewer:
         self.data_df["TD"] = self.data_df["TD"].astype(str)
         self.anomaly_df["TD"] = self.anomaly_df["TD"].astype(str)
 
-        # Group anomalies by TD
+        # Group anomalies by TD with include_groups=False to fix deprecation warning
         self.anomalies_by_td = (
-            self.anomaly_df.groupby(
-                "TD", group_keys=False
-            )  # Added group_keys=False to silence warning
+            self.anomaly_df.groupby("TD", group_keys=False)
             .apply(
                 lambda x: [
                     Anomaly(
@@ -211,7 +254,8 @@ class RecordViewer:
                         float(row["Confidence"].strip("%")) / 100,
                     )
                     for _, row in x.iterrows()
-                ]
+                ],
+                include_groups=False,  # Added to fix deprecation warning
             )
             .to_dict()
         )
@@ -240,35 +284,42 @@ class RecordViewer:
 
 
 def create_card(root, data, status, consistency_score):
-    card_frame = tk.Frame(
-        root, bd=2, relief="solid", padx=10, pady=10, bg="white"
+    card_frame = ctk.CTkFrame(root, fg_color="#252525", corner_radius=12)
+    card_frame.pack(padx=20, pady=(0, 20), fill="both", expand=True)
+
+    # Header section with consistency score
+    header_frame = ctk.CTkFrame(
+        card_frame, fg_color="#2d2d2d", corner_radius=12
     )
-    card_frame.pack(padx=20, pady=20, fill="both", expand=True)
+    header_frame.pack(fill="x", padx=15, pady=15)
 
-    # Add consistency score at the top
-    score_frame = tk.Frame(card_frame, bg="white")
-    score_frame.grid(row=0, column=0, columnspan=2, pady=(0, 10))
-
-    score_label = tk.Label(
-        score_frame,
-        text=f"Consistency Score: {consistency_score}%",
-        font=("Arial", 12, "bold"),
-        fg="black",
-        bg="white",
-    )
-    score_label.pack()
-
-    # TD number at the top of the card
-    td_label = tk.Label(
-        card_frame,
+    # TD number with modern styling
+    td_label = ctk.CTkLabel(
+        header_frame,
         text=f"TD: {data['TD']}",
-        font=("Arial", 14, "bold"),
-        fg="black",
-        bg="white",
+        font=("Inter", 20, "bold"),
+        text_color="#ffffff",
     )
-    td_label.grid(row=1, column=0, columnspan=2, pady=(0, 10))
+    td_label.pack(side="left", padx=15)
 
-    # Create a list of fields from the actual data
+    # Score with pill-style background
+    score_frame = ctk.CTkFrame(
+        header_frame, fg_color="#2d5a88", corner_radius=15
+    )
+    score_frame.pack(side="right", padx=15)
+
+    score_label = ctk.CTkLabel(
+        score_frame,
+        text=f"Consistency: {consistency_score}%",
+        font=("Inter", 13),
+        text_color="#ffffff",
+    )
+    score_label.pack(padx=12, pady=6)
+
+    # Fields section with modern styling
+    fields_frame = ctk.CTkFrame(card_frame, fg_color="transparent")
+    fields_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
     fields = [
         ("Last_Name", data.get("Last_Name", "")),
         ("First Name", data.get("First Name", "")),
@@ -279,32 +330,28 @@ def create_card(root, data, status, consistency_score):
         ("Overall Confidence OCR", data.get("Overall Confidence OCR", "")),
     ]
 
-    row = 2
-    for field, value in fields:
-        # Check if the field status is invalid
-        field_color = "white"
-        if status.get(field) == "invalid":
-            field_color = "lightcoral"  # Highlight invalid fields with light red background
-
-        # Label for each field
-        field_label = tk.Label(
-            card_frame,
-            text=f"{field}:",
+    for i, (field, value) in enumerate(fields):
+        # Field label with modern font
+        field_label = ctk.CTkLabel(
+            fields_frame,
+            text=f"{field}",  # Removed colon for modern look
             anchor="w",
-            font=("Arial", 10),
-            fg="black",
-            bg="white",
+            font=("Inter", 13),
+            text_color="#8b8b8b",  # Subtle gray
         )
-        field_label.grid(row=row, column=0, sticky="w", pady=2, padx=5)
+        field_label.grid(row=i, column=0, sticky="w", pady=8, padx=5)
 
-        # Create Entry widget for editing text fields
+        # Entry widget with modern styling
         if "Date" in field or "Birthdate" in field:
             entry_widget = DateEntry(
-                card_frame,
-                width=12,
+                fields_frame,
+                width=20,
                 date_pattern="dd/mm/yyyy",
-                background=field_color,
-                foreground="black",  # Added black text for date entry
+                background=(
+                    "#2b2b2b" if status.get(field) != "invalid" else "#662222"
+                ),
+                foreground="#ffffff",
+                borderwidth=0,
             )
             try:
                 entry_widget.set_date(value)
@@ -312,25 +359,29 @@ def create_card(root, data, status, consistency_score):
                 entry_widget.delete(0, tk.END)
                 entry_widget.insert(0, value)
         else:
-            entry_widget = tk.Entry(
-                card_frame,
-                width=30,
-                font=("Arial", 10),
-                bg=field_color,
-                fg="black",  # Added black text for entry
+            entry_widget = ctk.CTkEntry(
+                fields_frame,
+                width=200,
+                height=32,
+                font=("Inter", 13),
+                fg_color="#2b2b2b",
+                text_color="#ffffff",
+                border_color="#404040",
+                corner_radius=6,
             )
             entry_widget.insert(0, str(value))
+            if status.get(field) == "invalid":
+                entry_widget.configure(fg_color="#662222")
 
-        entry_widget.grid(row=row, column=1, pady=2, padx=5)
-        row += 1
+        entry_widget.grid(row=i, column=1, pady=8, padx=5, sticky="ew")
 
+    fields_frame.grid_columnconfigure(1, weight=1)
     return card_frame
 
 
 def main():
-    root = tk.Tk()
-    app = RecordViewer(root)
-    root.mainloop()
+    app = RecordViewer()
+    app.mainloop()
 
 
 if __name__ == "__main__":
