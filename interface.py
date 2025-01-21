@@ -121,18 +121,35 @@ class RecordViewer:
             image_index = self.current_td_index % len(image_files)
             image_path = os.path.join("card_images", image_files[image_index])
 
-            # Load and resize image
+            # Load image
             image = Image.open(image_path)
-            aspect_ratio = image.width / image.height
-            new_height = 800
-            new_width = int(new_height * aspect_ratio)
 
+            # Get the size of the right panel
+            panel_width = self.right_panel.winfo_width()
+            panel_height = self.right_panel.winfo_height()
+
+            # Calculate scaling factors for both dimensions
+            width_ratio = panel_width / image.width
+            height_ratio = panel_height / image.height
+
+            # Use the smaller ratio to ensure image fits in both dimensions
+            scale_factor = min(width_ratio, height_ratio)
+
+            # Calculate new dimensions
+            new_width = int(
+                image.width * scale_factor * 0.9
+            )  # 90% of panel width
+            new_height = int(
+                image.height * scale_factor * 0.9
+            )  # 90% of panel height
+
+            # Resize image
             image = image.resize(
                 (new_width, new_height), Image.Resampling.LANCZOS
             )
             photo = ImageTk.PhotoImage(image)
             self.image_label.configure(image=photo)
-            self.image_label.image = photo
+            self.image_label.image = photo  # Keep a reference
         except Exception as e:
             self.image_label.configure(image="")
             self.image_label.configure(text="No image available")
