@@ -218,10 +218,11 @@ class RecordViewer(ctk.CTk):
     def show_current_record(self):
         try:
             print("\nSHOWING RECORD:")
-            # Clear previous card
+            # Clear previous content
             for widget in self.content_frame.winfo_children():
                 widget.destroy()
 
+            # Get current record
             current_td = self.td_list[self.current_td_index]
             print("Current TD:", current_td)
 
@@ -242,16 +243,13 @@ class RecordViewer(ctk.CTk):
 
             print("Status:", status)
 
-            # Create card with suggestions
-            self.create_card(record_data, status, consistency_score)
-
-            # Create map frame
-            map_frame = ctk.CTkFrame(
+            # Create navigation frame
+            nav_frame = ctk.CTkFrame(
                 self.content_frame, fg_color="#252525", corner_radius=12
             )
-            map_frame.pack(padx=20, pady=(0, 20), fill="both", expand=True)
+            nav_frame.pack(padx=20, pady=20, fill="x")
 
-            # Get coordinates from the record
+            # Add map button if geo data exists
             if "Geo Location" in record_data and record_data["Geo Location"]:
                 try:
                     # Clean and parse the JSON string
@@ -262,13 +260,13 @@ class RecordViewer(ctk.CTk):
 
                     geo_data = json.loads(geo_string)
 
-                    # Create and display map
+                    # Create interactive map
                     map_path = self.create_map(geo_data)
 
-                    # Create a button to open the map in browser
+                    # Create a button to open the map
                     map_button = ctk.CTkButton(
-                        map_frame,
-                        text="View Journey Map",
+                        nav_frame,
+                        text="Open Journey Map",
                         command=lambda: webbrowser.open(
                             f"file://{os.path.abspath(map_path)}"
                         ),
@@ -276,29 +274,13 @@ class RecordViewer(ctk.CTk):
                         hover_color="#2a2a2a",
                         height=32,
                     )
-                    map_button.pack(pady=15)
+                    map_button.pack(side="right", padx=15, pady=15)
 
                 except Exception as e:
                     print(f"Error creating map: {str(e)}")
-                    error_label = ctk.CTkLabel(
-                        map_frame,
-                        text=f"Could not create map: {str(e)}",
-                        text_color="#ff6b6b",
-                        wraplength=300,
-                    )
-                    error_label.pack(pady=15)
-            else:
-                no_data_label = ctk.CTkLabel(
-                    map_frame,
-                    text="No journey data available",
-                    text_color="#8b8b8b",
-                )
-                no_data_label.pack(pady=15)
 
-            # Update counter
-            self.counter_label.configure(
-                text=f"Record {self.current_td_index + 1} of {len(self.td_list)}"
-            )
+            # Create data frame and continue with rest of the data display...
+            self.create_card(record_data, status, consistency_score)
 
             # Load corresponding image
             self.load_image(current_td)
