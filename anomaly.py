@@ -258,12 +258,24 @@ class HolocaustRecordValidator:
         anomalies = []
         if pd.notna(record["Nationality"]):
             nat = str(record["Nationality"]).strip().lower()
-            if nat not in self.valid_nationalities:
+            
+            # Check if the field is "-"
+            if nat == "-":
                 anomalies.append(
                     Anomaly(
                         field="Nationality",
                         value=nat,
-                        issue_type="unknown_nationality",
+                        issue_type="undeclared_nationality",
+                        confidence=1.0,
+                    )
+                )
+            # Check if the nationality is not in the valid list
+            elif nat not in self.valid_nationalities:
+                anomalies.append(
+                    Anomaly(
+                        field="Nationality",
+                        value=nat,
+                        issue_type="invalid_nationality",
                         confidence=0.7,
                     )
                 )
