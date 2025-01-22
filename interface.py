@@ -249,6 +249,23 @@ class RecordViewer(ctk.CTk):
             )
             nav_frame.pack(padx=20, pady=20, fill="x")
 
+            # Add Consistency Score and TD labels
+            consistency_label = ctk.CTkLabel(
+                nav_frame,
+                text=f"Consistency Score: {consistency_score}%",
+                font=("Inter", 12, "bold"),
+                text_color="#8b8b8b",
+            )
+            consistency_label.pack(side="left", padx=15, pady=15)
+
+            td_label = ctk.CTkLabel(
+                nav_frame,
+                text=f"TD: {current_td}",
+                font=("Inter", 12, "bold"),
+                text_color="#8b8b8b",
+            )
+            td_label.pack(side="left", padx=15, pady=15)
+
             # Add map button if geo data exists
             if "Geo Location" in record_data and record_data["Geo Location"]:
                 try:
