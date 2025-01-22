@@ -249,10 +249,10 @@ class RecordViewer(ctk.CTk):
             )
             nav_frame.pack(padx=20, pady=20, fill="x")
 
-            # Add Consistency Score, TD, and OCR Confidence labels
+            # Add Consistency Score, TD, and OCR Confidence labels in navbar
             consistency_label = ctk.CTkLabel(
                 nav_frame,
-                text=f"Consistency Score: {consistency_score}%",
+                text=f"Consistency Score: {consistency_score}",
                 font=("Inter", 12, "bold"),
                 text_color="#8b8b8b",
             )
@@ -299,7 +299,7 @@ class RecordViewer(ctk.CTk):
                         hover_color="#2a2a2a",
                         height=32,
                     )
-                    map_button.pack(side="right", padx=5, pady=15)
+                    map_button.pack(side="right", padx=30, pady=15)
 
                 except Exception as e:
                     print(f"Error creating map: {str(e)}")
