@@ -388,16 +388,17 @@ def create_anomaly_report(
     report_data = []
 
     for td, anomalies in anomalies_by_td.items():
-        for anomaly in anomalies:
-            report_data.append(
-                {
-                    "TD": td,
-                    "Field": anomaly.field,
-                    "Current Value": anomaly.value,
-                    "Issue Type": anomaly.issue_type,
-                    "Confidence": f"{anomaly.confidence * 100:.1f}%",
-                }
-            )
+        for field, field_anomalies in anomalies.items():
+            for anomaly in field_anomalies:
+                report_data.append(
+                    {
+                        "TD": td,
+                        "Field": field,
+                        "Current Value": anomaly.value,
+                        "Issue Type": anomaly.issue_type,
+                        "Confidence": f"{anomaly.confidence * 100:.1f}%",
+                    }
+                )
 
     # Create DataFrame and save to Excel
     report_df = pd.DataFrame(report_data)
